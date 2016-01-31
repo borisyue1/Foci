@@ -12,7 +12,16 @@ import CoreLocation
 import Social
 
 
-class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDelegate{
+class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDelegate, UISearchBarDelegate {
+    
+    var searchController:UISearchController!
+    var annotation:MKAnnotation!
+    var localSearchRequest:MKLocalSearchRequest!
+    var localSearch:MKLocalSearch!
+    var localSearchResponse:MKLocalSearchResponse!
+    var error:NSError!
+    var pointAnnotation:MKPointAnnotation!
+    var pinAnnotationView:MKPinAnnotationView!
     
     var addressSSS: String? = ""
     static var address: String? = ""
@@ -24,13 +33,20 @@ class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDele
 //        UIApplication.sharedApplication().keyWindow?.rootViewController?.presentViewController(controller, animated: true, completion: nil)
         
         
-        
     }
 
+    @IBOutlet weak var search: UISearchBar!
     @IBOutlet var map: MKMapView!
     
     var locationManager = CLLocationManager()
     
+    
+    @IBAction func showSearchBar(sender: AnyObject) {
+        searchController = UISearchController(searchResultsController: nil)
+        searchController.hidesNavigationBarDuringPresentation = false
+        self.searchController.searchBar.delegate = self
+        presentViewController(searchController, animated: true, completion: nil)
+    }
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
@@ -44,8 +60,8 @@ class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDele
         
         getLocationName()
     
-        resignFirstResponder()
-        
+      
+//        self.search.delegate = self
         /* let lat: CLLocationDegrees = 37.422053
         let lon: CLLocationDegrees =  -122.084050
         
@@ -86,8 +102,57 @@ class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDele
         
         
         */
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: "dismissKeyboard")
+        view.addGestureRecognizer(tap)
         
         
+        
+        
+    }
+    func dismissKeyboard() {
+        //Causes the view (or one of its embedded text fields) to resign the first responder status.
+        view.endEditing(true)
+    }
+
+        
+    
+    
+    func searchBarSearchButtonClicked(searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+        dismissViewControllerAnimated(true, completion: nil)
+        if self.map.annotations.count != 0{
+            annotation = self.map.annotations[0]
+            self.map.removeAnnotation(annotation)
+        }
+        //2
+        localSearchRequest = MKLocalSearchRequest()
+        localSearchRequest.naturalLanguageQuery = searchBar.text
+        localSearchRequest.region = map.region
+        localSearch = MKLocalSearch(request: localSearchRequest)
+        localSearch.startWithCompletionHandler { (localSearchResponse, error) -> Void in
+            
+            if localSearchResponse == nil{
+                let alertController = UIAlertController(title: nil, message: "Place Not Found", preferredStyle: UIAlertControllerStyle.Alert)
+                alertController.addAction(UIAlertAction(title: "Dismiss", style: UIAlertActionStyle.Default, handler: nil))
+                self.presentViewController(alertController, animated: true, completion: nil)
+                return
+            }
+            //3
+            self.pointAnnotation = MKPointAnnotation()
+            self.pointAnnotation.title = searchBar.text
+            self.pointAnnotation.coordinate = CLLocationCoordinate2D(latitude: localSearchResponse!.boundingRegion.center.latitude, longitude:     localSearchResponse!.boundingRegion.center.longitude)
+            
+            
+            self.pinAnnotationView = MKPinAnnotationView(annotation: self.pointAnnotation, reuseIdentifier: nil)
+            self.map.centerCoordinate = self.pointAnnotation.coordinate
+            self.map.addAnnotation(self.pinAnnotationView.annotation!)
+            let annotation = MKPointAnnotation()
+            annotation.title = "My house"
+            annotation.subtitle = "My house is very serene!"
+            annotation.coordinate = self.map.centerCoordinate
+            self.map.addAnnotation(annotation)
+            
+        }
     }
     func getAddress() -> String {
 //        print(V.address)
